@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dystopia - Custom Character Dice v2.5</title>
+    <style>
+        :root {
+            --bg-color: #020203;
+            --card-bg: rgba(10, 10, 13, 0.95);
+            --accent-color: #a30000;
+            --accent-glow: #ff0000;
+            --text-color: #e5e5e5;
+            --text-muted: #4e4e5d;
+            --font-main: 'Courier', 'Courier New', monospace;
+            --font-heading: 'Arial Black', 'Impact', sans-serif;
+
+            --color-nahkampf: #ff2222;
+            --color-fernkampf: #2266ff;
+            --color-superkraft: #ffbb00;
+            --color-defensiv: #bbbbbb;
+            
+            --color-highlight-green: rgba(0, 255, 100, 0.25);
+            --border-highlight-green: #00ff66;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            font-family: var(--font-main);
+            font-weight: bold;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: " "; display: block; position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+            pointer-events: none; z-index: 998;
+        }
+
+        .matrix-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1; overflow: hidden; opacity: 0.15;
+        }
+
+        .matrix-column {
+            position: absolute; bottom: -200px; font-size: 11px; color: var(--accent-glow);
+            writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap;
+            animation: matrix-rise linear infinite; text-shadow: 0 0 4px var(--accent-color);
+        }
+
+        @keyframes matrix-rise {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-120vh); }
+        }
+
+        body::after {
+            content: " "; display: block; position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%),
+                linear-gradient(0deg, rgba(255, 0, 0, 0.03) 10%, transparent 10%);
+            background-size: 100% 4px, 100% 300px;
+            z-index: 999; pointer-events: none; opacity: 0.8;
+            animation: crt-lines 4s linear infinite;
+        }
+
+        @keyframes crt-lines {
+            0% { background-position: 0 0, 0 0; }
+            100% { background-position: 0 0, 0 600px; }
+        }
+
+        .container { width: 100%; max-width: 480px; text-align: center; position: relative; z-index: 5; }
+
+        h2 { 
+            font-family: var(--font-heading); font-size: 20px; text-transform: uppercase;
+            letter-spacing: 2px; margin-bottom: 15px; border-bottom: 2px solid var(--accent-color); 
+            padding-bottom: 5px; display: inline-block; color: #fff; position: relative;
+            animation: text-glitch-fast 1.8s steps(1) infinite;
+        }
+
+        @keyframes text-glitch-fast {
+            0%, 10%, 80%, 100% { text-shadow: 1px 0 0 rgba(255,0,0,0.8), -1px 0 0 rgba(0,255,255,0.8); transform: skewX(0deg); }
+            2% { text-shadow: 4px 0 0 #00ffff, -4px 0 0 #ff00ff; transform: skewX(-8deg) scaleY(1.1); filter: brightness(1.5); }
+            4% { text-shadow: -5px 0 0 #00ff00, 5px 0 0 #ff0000; transform: skewX(6deg); }
+            6% { text-shadow: 2px 0 0 #ffff00, -2px 0 0 #0000ff; transform: clip-path(inset(40% 0 61% 0)); }
+            82% { text-shadow: 3px 0 0 #ff00ff, -3px 0 0 #00ffff; transform: skewX(10deg); }
+            84% { transform: translateX(-4px); }
+        }
+
+        .screen {
+            display: none; background: var(--card-bg); padding: 20px; border-radius: 4px;
+            border: 1px solid #321010; box-shadow: 0 0 25px rgba(163,0,0,0.15), inset 0 0 15px rgba(0,0,0,0.9);
+            margin-top: 15px; backdrop-filter: blur(6px);
+        }
+
+        .screen.active { display: block !important; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 15px; }
+
+        input[type="text"] {
+            width: 100%; background: #050508; border: 1px solid #4a1c1c; padding: 12px;
+            color: #fff; font-size: 16px; font-family: var(--font-main); text-align: center;
+            border-radius: 4px; text-transform: uppercase; margin-bottom: 15px;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--accent-glow); box-shadow: 0 0 10px rgba(255,0,0,0.3); }
+
+        .points-left { font-size: 13px; color: #fff; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 1px; }
+        .points-highlight { color: var(--border-highlight-green); text-shadow: 0 0 5px var(--border-highlight-green); }
+
+        .attr-row {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #07070a; border: 1px solid #1f1f2e; padding: 8px 12px;
+            margin-bottom: 10px; border-radius: 4px;
+        }
+        .attr-label { font-size: 13px; text-transform: uppercase; text-align: left; flex-grow: 1; }
+        .attr-controls { display: flex; align-items: center; gap: 10px; }
+        
+        .btn-calc {
+            background: #111116; border: 1px solid #3a1c1c; color: #fff;
+            width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+            font-size: 18px; cursor: pointer; border-radius: 4px; padding: 0;
+            z-index: 10; position: relative;
+        }
+        .btn-calc:active:not(:disabled) { background: var(--accent-color); border-color: var(--accent-glow); }
+        .btn-calc:disabled { opacity: 0.15; cursor: not-allowed; }
+
+        .attr-display {
+            width: 85px; background: #000; border: 1px solid #2a1515; text-align: center;
+            padding: 5px 0; font-size: 12px; border-radius: 4px; text-transform: uppercase;
+        }
+
+        button.btn-action {
+            background-color: #5a0000; border: 1px solid var(--accent-glow); padding: 16px;
+            margin-top: 20px; font-size: 16px; color: #fff !important; box-shadow: 0 0 15px rgba(163, 3, 3, 0.6);
+            text-shadow: 0 0 4px #fff; text-align: center; width: 100%; border-radius: 4px; cursor: pointer;
+            text-transform: uppercase; z-index: 10; position: relative;
+        }
+        button.btn-action:disabled { background-color: #050507; border-color: #15151c; color: #252530 !important; cursor: not-allowed; box-shadow: none; text-shadow: none; }
+
+        button.btn-choice {
+            background-color: #0b0b0f; color: #ffffff !important; border: 1px solid #4a1c1c;
+            padding: 15px 10px; font-size: 14px; text-transform: uppercase; border-radius: 4px;
+            cursor: pointer; width: 100%; text-align: center;
+        }
+        button.btn-choice:active { background-color: var(--accent-color); border-color: var(--accent-glow); }
+
+        .live-status-bar { background: #050508; border: 1px solid #2a1010; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: left; font-size: 12px; line-height: 1.5; }
+
+        .dice-board {
+            display: flex; justify-content: center; align-items: center;
+            background: #020204; border: 1px dashed #421111; border-radius: 4px; padding: 25px;
+            margin: 15px 0; min-height: 140px;
+        }
+
+        .dice-cup {
+            background: #09090e; border: 1px solid #2a1515; border-radius: 6px; padding: 15px 25px;
+            text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.8); opacity: 0;
+            transform: translateY(10px); transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+        .dice-cup.visible { opacity: 1; transform: translateY(0); }
+
+        .dice-graphic {
+            width: 55px; height: 55px; margin: 0 auto 8px auto; display: flex; align-items: center;
+            justify-content: center; font-size: 22px; color: #fff; border-radius: 6px;
+            border: 2px solid rgba(255,255,255,0.25); text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.7);
+        }
+
+        .dice-rolling { animation: matrix-flicker-fast 0.07s infinite alternate; box-shadow: 0 0 15px var(--accent-glow), inset 0 0 10px rgba(0,0,0,0.5) !important; border-color: #fff !important; }
+        .dice-crit { animation: crit-pulse 0.4s infinite alternate !important; border-color: #00ff66 !important; box-shadow: 0 0 25px #00ff66, inset 0 0 10px rgba(0,255,100,0.8) !important; }
+        .dice-fail { animation: fail-glitch 0.1s infinite !important; border-color: #ff0055 !important; box-shadow: 0 0 25px #ff0055, inset 0 0 10px rgba(255,0,85,0.8) !important; }
+
+        @keyframes crit-pulse { 0% { transform: scale(1); filter: brightness(1); } 100% { transform: scale(1.08); filter: brightness(1.5); } }
+        @keyframes fail-glitch { 0% { transform: translate(1px, 1px) skewX(-5deg); filter: hue-rotate(90deg); } 50% { transform: translate(-1px, -1px) skewX(5deg); filter: invert(0.2); } 100% { transform: translate(0px, 0px); } }
+
+        .dice-meta { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+
+        .clash-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(180,0,0,0.99) 0%, rgba(5,0,0,1) 100%);
+            z-index: 9999; display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.08s ease;
+        }
+        .clash-overlay.active { opacity: 1; animation: crt-flicker-extreme 0.05s infinite alternate; }
+        .clash-overlay::before {
+            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.6) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.15), rgba(0, 255, 0, 0.05), rgba(0, 255, 0, 0.15));
+            z-index: 2; background-size: 100% 8px, 8px 100%;
+        }
+        .clash-text {
+            font-family: var(--font-heading); font-size: 7vw; max-width: 90%;
+            word-wrap: break-word; word-break: break-all; color: #fff;
+            text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 0 0 15px #ff0000, 0 0 40px #ff0000;
+            animation: text-shake-extreme 0.05s infinite; z-index: 3; text-align: center;
+        }
+        @media (min-width: 480px) { .clash-text { font-size: 28px; } }
+
+        @keyframes crt-flicker-extreme { 0% { filter: brightness(0.7) contrast(1.6) skewX(-3deg); } 50% { filter: brightness(1.5) contrast(0.6) skewX(3deg); } 100% { filter: brightness(0.8) contrast(1.3) skewX(0deg); } }
+        @keyframes text-shake-extreme { 0% { transform: translate(4px, -2px) rotate(1deg); filter: blur(1px); } 50% { transform: translate(-4px, 2px) rotate(-1deg); filter: blur(0px); } 100% { transform: translate(1px, -3px) rotate(1deg); } }
+    </style>
+</head>
+<body>
+
+<div class="matrix-bg" id="matrix-container"></div>
+
+<div id="clash-overlay" class="clash-overlay">
+    <div class="clash-text">[ INITIALISIERE WURF ]</div>
+</div>
+
+<div class="container">
+
+    <div id="screen-char" class="screen active">
+        <h2>IDENTITÄT ANLEGEN</h2>
+        <input type="text" id="char-name" placeholder="CHARAKTERNAME EINGEBEN" value="REBELLE">
+        
+        <div class="points-left">Verfügbare Punkte: <span id="points-pool" class="points-highlight">9</span> / 9</div>
+        
+        <div id="attr-rows-container"></div>
+
+        <button type="button" class="btn-action" id="btn-save-char" onclick="saveCharacter()">Werte bestätigen</button>
+    </div>
+
+    <div id="screen-bonus-prompt" class="screen">
+        <h2>EINSATZ-MODIFIKATION</h2>
+        <p style="font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin: 20px 0;">Liegen für diesen Wurf temporäre Bonuspunkte oder Mali vor?</p>
+        <div class="grid">
+            <button type="button" class="btn-choice" onclick="handleBonusPromptDecision(true)" style="border-color: #00ff66; color: #00ff66 !important;">JA</button>
+            <button type="button" class="btn-choice" onclick="handleBonusPromptDecision(false)" style="border-color: var(--accent-color); color: #fff !important;">NEIN</button>
+        </div>
+    </div>
+
+    <div id="screen-bonus-setup" class="screen">
+        <h2>MODIFIKATOREN RECHNER</h2>
+        <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 20px;">Stelle die Modifikatoren für die einzelnen Attribute ein.</p>
+        
+        <div id="bonus-rows-container"></div>
+
+        <button type="button" class="btn-action" onclick="goToDiceSelection()">Modifikatoren übernehmen</button>
+    </div>
+
+    <div id="screen-select-dice" class="screen">
+        <h2>WÜRFEL WÄHLEN</h2>
+        <div class="live-status-bar">
+            <strong>AKTIVER CHARAKTER:</strong> <span id="status-name" style="color: #fff;">-</span><br>
+            <span id="status-stats" style="font-size: 11px; color: var(--text-muted);"></span><br>
+            <strong style="font-size: 11px;">AKTIVE MODIFIKATOREN:</strong><br>
+            <span id="status-modifiers-list" style="font-size: 11px; line-height: 1.4;"></span>
+        </div>
+        <p style="font-size: 13px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 15px;">Welches Attribut möchtest du testen?</p>
+        <div class="grid" id="dice-options-grid"></div>
+    </div>
+
+    <div id="screen-results" class="screen">
+        <h2>SYSTEM-TEST</h2>
+        <div class="live-status-bar">
+            <strong>AKTION:</strong> <span id="active-test-display" style="text-transform:uppercase; color:#fff;">-</span><br>
+            <strong>MODIFIKATOR EFFEKT:</strong> <span id="active-mod-display">-</span>
+        </div>
+
+        <div class="dice-board" id="dice-board-area"></div>
+
+        <div id="loop-prompt" style="display:none; margin-top: 20px; border-top: 1px dashed #30303c; padding-top: 15px;">
+            <p style="font-size: 13px; color: #fff; text-transform: uppercase; margin-bottom: 15px;">Möchtest du Werte ändern?</p>
+            <div class="grid">
+                <button type="button" class="btn-choice" onclick="handleLoopDecision(true)" style="border-color: #ffbb00; color: #ffbb00 !important;">JA (Anpassen)</button>
+                <button type="button" class="btn-choice" onclick="handleLoopDecision(false)" style="border-color: #00ff66; color: #00ff66 !important;">NEIN (Weiter)</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let audioCtx = null;
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function playClickSound() {
+        initAudio(); if (!audioCtx) return;
+        let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.06);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.06);
+    }
+
+    function playCombatOverlaySound() {
+        initAudio(); if (!audioCtx) return;
+        let now = audioCtx.currentTime;
+        let bassOsc = audioCtx.createOscillator(); let bassGain = audioCtx.createGain();
+        bassOsc.type = 'sawtooth'; bassOsc.frequency.setValueAtTime(90, now);
+        bassOsc.frequency.linearRampToValueAtTime(40, now + 1.2);
+        bassGain.gain.setValueAtTime(0.3, now); bassGain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+        bassOsc.connect(bassGain); bassGain.connect(audioCtx.destination);
+        bassOsc.start(); bassOsc.stop(now + 1.2);
+    }
+
+    function playDiceTickSound() {
+        initAudio(); if (!audioCtx) return;
+        let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+        osc.type = 'square'; osc.frequency.setValueAtTime(Math.random() * 400 + 300, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.03);
+    }
+
+    function playCritSound() {
+        initAudio(); if (!audioCtx) return;
+        let now = audioCtx.currentTime;
+        let osc1 = audioCtx.createOscillator(); let gain1 = audioCtx.createGain();
+        osc1.type = 'sine'; osc1.frequency.setValueAtTime(880, now);
+        osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.25);
+        gain1.gain.setValueAtTime(0.15, now); gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc1.connect(gain1); gain1.connect(audioCtx.destination);
+        osc1.start(); osc1.stop(now + 0.25);
+    }
+
+    function playFailSound() {
+        initAudio(); if (!audioCtx) return;
+        let now = audioCtx.currentTime;
+        let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(120, now);
+        osc.frequency.linearRampToValueAtTime(60, now + 0.3);
+        gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.001, now + 0.3);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(now + 0.3);
+    }
+
+    // ==========================================
+    // GAME CONFIG & STATE
+    // ==========================================
+    const MAX_POINTS = 9;
+    const diceLevels = {
+        0: { name: "W4", max: 4 }, 1: { name: "W6", max: 6 }, 2: { name: "W8", max: 8 },
+        3: { name: "W10", max: 10 }, 4: { name: "W12", max: 12 }
+    };
+
+    const attributes = [
+        { id: "Nahkampf", name: "⚔️ Nahkampf", color: "var(--color-nahkampf)" },
+        { id: "Fernkampf", name: "🏹 Fernkampf", color: "var(--color-fernkampf)" },
+        { id: "Superkraft", name: "⚡ Superkraft", color: "var(--color-superkraft)" },
+        { id: "Defensiv", name: "🛡️ Defensive", color: "var(--color-defensiv)" }
+    ];
+
+    let characterState = {
+        name: "REBELLE",
+        stats: { "Nahkampf": 0, "Fernkampf": 0, "Superkraft": 0, "Defensiv": 0 },
+        modifiers: { "Nahkampf": 0, "Fernkampf": 0, "Superkraft": 0, "Defensiv": 0 }
+    };
+
+    window.onload = function() { 
+        createMatrixBackground(); 
+        renderAttributeSetup();
+    };
+
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('button')) playClickSound();
+    });
+
+    function createMatrixBackground() {
+        const container = document.getElementById('matrix-container'); if (!container) return;
+        container.innerHTML = '';
+        const columnCount = Math.floor(window.innerWidth / 24);
+        const codePool = ["01", "10", "FF", "0X", "A9", "4B"];
+        for (let i = 0; i < columnCount; i++) {
+            const col = document.createElement('div'); col.className = 'matrix-column';
+            let stringLen = Math.floor(Math.random() * 15) + 10; let colText = "";
+            for(let j=0; j<stringLen; j++) colText += codePool[Math.floor(Math.random() * codePool.length)] + " ";
+            col.innerText = colText; col.style.left = `${i * (100 / columnCount)}%`;
+            col.style.animationDuration = `${Math.random() * 5 + 4}s`; col.style.animationDelay = `${Math.random() * -8}s`;
+            col.style.fontSize = `${Math.floor(Math.random() * 4) + 9}px`; container.appendChild(col);
+        }
+    }
+
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        const target = document.getElementById(screenId); if (target) target.classList.add('active');
+    }
+
+    function getUsedPoints() {
+        return Object.values(characterState.stats).reduce((a, b) => a + b, 0);
+    }
+
+    function renderAttributeSetup() {
+        const container = document.getElementById('attr-rows-container');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        const used = getUsedPoints();
+        document.getElementById('points-pool').innerText = MAX_POINTS - used;
+
+        attributes.forEach(attr => {
+            const currentVal = characterState.stats[attr.id];
+            const diceName = diceLevels[currentVal].name;
+
+            const row = document.createElement('div');
+            row.className = 'attr-row';
+            row.innerHTML = `
+                <div class="attr-label" style="color: ${attr.color}">${attr.name}</div>
+                <div class="attr-controls">
+                    <button type="button" class="btn-calc" onclick="adjustStat('${attr.id}', -1)" ${currentVal <= 0 ? 'disabled' : ''}>-</button>
+                    <div class="attr-display" style="color: ${attr.color}">${diceName} (Lvl ${currentVal})</div>
+                    <button type="button" class="btn-calc" onclick="adjustStat('${attr.id}', 1)" ${used >= MAX_POINTS || currentVal >= 4 ? 'disabled' : ''}>+</button>
+                </div>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    function adjustStat(attrId, amount) {
+        characterState.stats[attrId] += amount;
+        renderAttributeSetup();
+    }
+
+    function saveCharacter() {
+        const nameInput = document.getElementById('char-name').value.trim();
+        characterState.name = nameInput ? nameInput : "REBELLE";
+        showScreen('screen-bonus-prompt');
+    }
+
+    function handleBonusPromptDecision(wantsBonus) {
+        if (wantsBonus) {
+            renderBonusSetup();
+            showScreen('screen-bonus-setup');
+        } else {
+            resetModifiers();
+            goToDiceSelection();
+        }
+    }
+
+    function resetModifiers() {
+        attributes.forEach(attr => {
+            characterState.modifiers[attr.id] = 0;
+        });
+    }
+
+    function renderBonusSetup() {
+        const container = document.getElementById('bonus-rows-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        attributes.forEach(attr => {
+            const currentMod = characterState.modifiers[attr.id];
+            let modText = currentMod === 0 ? "0" : (currentMod > 0 ? `+${currentMod}` : `${currentMod}`);
+            let modColor = currentMod === 0 ? "#fff" : (currentMod > 0 ? "var(--border-highlight-green)" : "#ff0055");
+
+            const row = document.createElement('div');
+            row.className = 'attr-row';
+            row.innerHTML = `
+                <div class="attr-label" style="color: ${attr.color}">${attr.name}</div>
+                <div class="attr-controls">
+                    <button type="button" class="btn-calc" onclick="adjustBonus('${attr.id}', -1)">-</button>
+                    <div class="attr-display" id="bonus-display-${attr.id}" style="color: ${modColor}; font-size: 14px;">${modText}</div>
+                    <button type="button" class="btn-calc" onclick="adjustBonus('${attr.id}', 1)">+</button>
+                </div>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    function adjustBonus(attrId, amount) {
+        characterState.modifiers[attrId] += amount;
+        
+        // Live-Update des Displays für die Zeile
+        const display = document.getElementById(`bonus-display-${attrId}`);
+        if (display) {
+            const currentMod = characterState.modifiers[attrId];
+            display.innerText = currentMod === 0 ? "0" : (currentMod > 0 ? `+${currentMod}` : `${currentMod}`);
+            display.style.color = currentMod === 0 ? "#fff" : (currentMod > 0 ? "var(--border-highlight-green)" : "#ff0055");
+        }
+    }
+
+    function goToDiceSelection() {
+        // Statusleiste: Name & Attribute
+        document.getElementById('status-name').innerText = characterState.name;
+        document.getElementById('status-stats').innerHTML = attributes.map(attr => {
+            return `<span style="color:${attr.color}">${attr.id.charAt(0)}: ${diceLevels[characterState.stats[attr.id]].name}</span>`;
+        }).join(' | ');
+
+        // Statusleiste: Modifikatoren-Übersicht generieren
+        const modSummaryList = document.getElementById('status-modifiers-list');
+        modSummaryList.innerHTML = attributes.map(attr => {
+            const mod = characterState.modifiers[attr.id];
+            const modText = mod === 0 ? "0" : (mod > 0 ? `+${mod}` : `${mod}`);
+            const modColor = mod === 0 ? "var(--text-muted)" : (mod > 0 ? "var(--border-highlight-green)" : "#ff0055");
+            return `<span style="color:${attr.color}">${attr.id}:</span> <span style="color:${modColor}">${modText}</span>`;
+        }).join(' | ');
+
+        // Optionen für die Würfel-Buttons bauen
+        const diceOptionsGrid = document.getElementById('dice-options-grid');
+        diceOptionsGrid.innerHTML = '';
+        attributes.forEach(attr => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-choice';
+            btn.setAttribute('type', 'button');
+            btn.style.borderColor = attr.color;
+            
+            // Zeige direkt auf dem Button an, ob ein Modifikator für dieses Attribut aktiv ist
+            const mod = characterState.modifiers[attr.id];
+            const modBadge = mod !== 0 ? ` (${mod >= 0 ? '+' : ''}${mod})` : '';
+
+            btn.innerHTML = `<span style="color:${attr.color}">${attr.name} (${diceLevels[characterState.stats[attr.id]].name})${modBadge}</span>`;
+            btn.onclick = function() { startDiceRoll(attr); };
+            diceOptionsGrid.appendChild(btn);
+        });
+
+        showScreen('screen-select-dice');
+    }
+
+    function startDiceRoll(attributeObj) {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        const overlay = document.getElementById('clash-overlay');
+        overlay.classList.add('active');
+        playCombatOverlaySound();
+
+        setTimeout(() => {
+            overlay.classList.remove('active');
+            executeRoll(attributeObj);
+        }, 1200);
+    }
+
+    function executeRoll(attr) {
+        showScreen('screen-results');
+        
+        document.getElementById('active-test-display').innerText = `${attr.name} - TEST`;
+        document.getElementById('active-test-display').style.color = attr.color;
+        
+        // Den spezifischen Modifikator dieses Attributs holen
+        const activeMod = characterState.modifiers[attr.id];
+        const modDisplay = document.getElementById('active-mod-display');
+        
+        if (activeMod > 0) {
+            modDisplay.innerText = `Effekt: +${activeMod} auf ${attr.id}-Endergebnis`;
+            modDisplay.style.color = 'var(--border-highlight-green)';
+        } else if (activeMod < 0) {
+            modDisplay.innerText = `Effekt: ${activeMod} auf ${attr.id}-Endergebnis`;
+            modDisplay.style.color = '#ff0055';
+        } else {
+            modDisplay.innerText = `Keine Modifikatoren für ${attr.id} aktiv`;
+            modDisplay.style.color = 'var(--text-muted)';
+        }
+        
+        const loopPrompt = document.getElementById('loop-prompt');
+        loopPrompt.style.display = 'none';
+
+        const board = document.getElementById('dice-board-area');
+        board.innerHTML = '';
+
+        const currentLevel = characterState.stats[attr.id];
+        const dCfg = diceLevels[currentLevel];
+        
+        const diceCard = document.createElement('div'); 
+        diceCard.className = 'dice-cup'; 
+        diceCard.innerHTML = `
+            <div id="dice-graphic-elem" class="dice-graphic dice-rolling" style="background-color: #3a0000;">?</div>
+            <div class="dice-meta">COMPUTING...</div>
+        `;
+        board.appendChild(diceCard);
+        setTimeout(() => diceCard.classList.add('visible'), 10);
+
+        const placeholderChars = ["?", "#", "X", "@", "!", "*"];
+        let flackertime = 0;
+        
+        let rollInterval = setInterval(() => {
+            const graphicElem = document.getElementById('dice-graphic-elem');
+            if (graphicElem) {
+                graphicElem.innerText = placeholderChars[Math.floor(Math.random() * placeholderChars.length)];
+                playDiceTickSound();
+            }
+            flackertime += 40;
+
+            if (flackertime >= 400) { 
+                clearInterval(rollInterval);
+                
+                const rawRoll = Math.floor(Math.random() * dCfg.max) + 1;
+                // Spezifischen Modifikator verrechnen (Ergebnis kann nicht unter 1 fallen)
+                const finalResult = Math.max(1, rawRoll + activeMod);
+                
+                let dynamicClass = "";
+                
+                if (rawRoll === dCfg.max) {
+                    dynamicClass = "dice-crit"; playCritSound();
+                } else if (rawRoll === 1) {
+                    dynamicClass = "dice-fail"; playFailSound();
+                } else {
+                    initAudio(); if (audioCtx) {
+                        let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+                        osc.type = 'sine'; osc.frequency.setValueAtTime(350, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0.04, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+                        osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.08);
+                    }
+                }
+
+                // Generierung des Infotexts unter dem Würfel
+                let metaText = `${dCfg.name} GEWÜRFELT`;
+                if (activeMod !== 0) {
+                    metaText = `Basis: ${rawRoll} (${activeMod >= 0 ? '+' : ''}${activeMod} ${attr.id}-Mod)`;
+                }
+
+                diceCard.innerHTML = `
+                    <div class="dice-graphic ${dynamicClass}" style="background-color: ${attr.color}; text-shadow: 0 0 5px #000; font-family: var(--font-heading);">
+                        ${finalResult}
+                    </div>
+                    <div class="dice-meta">${metaText}</div>
+                `;
+
+                setTimeout(() => {
+                    loopPrompt.style.display = 'block';
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                }, 200);
+            }
+        }, 40);
+    }
+
+    function handleLoopDecision(wantsToChange) {
+        if (wantsToChange) {
+            resetModifiers();
+            renderAttributeSetup();
+            showScreen('screen-char');
+        } else {
+            goToDiceSelection();
+        }
+    }
+</script>
+</body>
+</html>
